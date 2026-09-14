@@ -1398,11 +1398,14 @@ func ReadReplicationCredentials(instanceKey *InstanceKey) (creds *ReplicationCre
 		query := `
 			select
 				ifnull(max(User_name), '') as user,
-				ifnull(max(User_password), '') as password
+				ifnull(max(User_password), '') as password,
+				ifnull(max(Ssl_ca), '') as ssl_ca,
+				ifnull(max(Ssl_cert), '') as ssl_cert,
+				ifnull(max(Ssl_key), '') as ssl_key
 			from
 				mysql.slave_master_info
 		`
-		err = ScanInstanceRow(instanceKey, query, &creds.User, &creds.Password)
+		err = ScanInstanceRow(instanceKey, query, &creds.User, &creds.Password, &creds.SSLCaCert, &creds.SSLCert, &creds.SSLKey)
 		if err == nil && creds.User == "" {
 			err = fmt.Errorf("Empty username found in mysql.slave_master_info")
 		}
