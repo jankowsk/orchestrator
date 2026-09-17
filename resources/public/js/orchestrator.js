@@ -193,6 +193,17 @@ function apiCommand(uri, hint) {
   return false;
 }
 
+// apiCommandAndReloadNow is like apiCommand(), but for actions (e.g. recoveries)
+// that run synchronously on the server and can take a long time to complete.
+// Waiting for the response before reloading (as apiCommand() does) would only
+// reflect the "in progress" state after it's already over. Instead, fire the
+// request and reload right away, so in-progress indicators show up immediately.
+function apiCommandAndReloadNow(uri, hint) {
+  $.get(appUrl(uri), function() {}, "json");
+  reloadWithMessage("Recovery initiated", null, hint);
+  return false;
+}
+
 function reloadWithMessage(msg, details, hint) {
   msg = msg || '';
   var hostname = "";

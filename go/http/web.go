@@ -240,6 +240,32 @@ func (this *HttpWeb) AuditRecovery(params martini.Params, r render.Render, req *
 		"clusterAlias":        clusterAlias,
 		"recoveryId":          recoveryId,
 		"recoveryUid":         recoveryUid,
+		"activeOnly":          false,
+		"prefix":              this.URLPrefix,
+		"webMessage":          config.Config.WebMessage,
+	})
+}
+
+func (this *HttpWeb) AuditRecoveryActive(params martini.Params, r render.Render, req *http.Request, user auth.User) {
+	page, err := strconv.Atoi(params["page"])
+	if err != nil {
+		page = 0
+	}
+	clusterAlias := params["clusterAlias"]
+
+	clusterName, _ := figureClusterName(params["clusterName"])
+	r.HTML(200, "templates/audit_recovery", map[string]interface{}{
+		"agentsHttpActive":    config.Config.ServeAgentsHttp,
+		"title":               "audit-recovery-active",
+		"authorizedForAction": isAuthorizedForAction(req, user),
+		"userId":              getUserId(req, user),
+		"autoshow_problems":   false,
+		"page":                page,
+		"clusterName":         clusterName,
+		"clusterAlias":        clusterAlias,
+		"recoveryId":          int64(0),
+		"recoveryUid":         "",
+		"activeOnly":          true,
 		"prefix":              this.URLPrefix,
 		"webMessage":          config.Config.WebMessage,
 	})
@@ -429,6 +455,12 @@ func (this *HttpWeb) RegisterRequests(m *martini.ClassicMartini) {
 	this.registerWebRequest(m, "audit-recovery/cluster/:clusterName/:page", this.AuditRecovery)
 	this.registerWebRequest(m, "audit-recovery/alias/:clusterAlias", this.AuditRecovery)
 	this.registerWebRequest(m, "audit-recovery/alias/:clusterAlias/:page", this.AuditRecovery)
+	this.registerWebRequest(m, "audit-recovery-active", this.AuditRecoveryActive)
+	this.registerWebRequest(m, "audit-recovery-active/:page", this.AuditRecoveryActive)
+	this.registerWebRequest(m, "audit-recovery-active/cluster/:clusterName", this.AuditRecoveryActive)
+	this.registerWebRequest(m, "audit-recovery-active/cluster/:clusterName/:page", this.AuditRecoveryActive)
+	this.registerWebRequest(m, "audit-recovery-active/alias/:clusterAlias", this.AuditRecoveryActive)
+	this.registerWebRequest(m, "audit-recovery-active/alias/:clusterAlias/:page", this.AuditRecoveryActive)
 	this.registerWebRequest(m, "audit-failure-detection", this.AuditFailureDetection)
 	this.registerWebRequest(m, "audit-failure-detection/:page", this.AuditFailureDetection)
 	this.registerWebRequest(m, "audit-failure-detection/id/:id", this.AuditFailureDetection)

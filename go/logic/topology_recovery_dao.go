@@ -665,12 +665,18 @@ func ReadRecoveryByUID(recoveryUID string) ([]*TopologyRecovery, error) {
 }
 
 // ReadCRecoveries reads latest recovery entries from topology_recovery
-func ReadRecentRecoveries(clusterName string, clusterAlias string, unacknowledgedOnly bool, page int) ([]*TopologyRecovery, error) {
+func ReadRecentRecoveries(clusterName string, clusterAlias string, unacknowledgedOnly bool, activeOnly bool, page int) ([]*TopologyRecovery, error) {
 	whereConditions := []string{}
 	whereClause := ""
 	args := sqlutils.Args()
 	if unacknowledgedOnly {
 		whereConditions = append(whereConditions, `acknowledged=0`)
+	}
+	if activeOnly {
+		// "Ongoing" means the recovery function has not yet completed. end_active_period_unixtime /
+		// in_active_period reflect the post-recovery anti-flapping window, which stays set long after
+		// a recovery has finished, so they are not a reliable "ongoing" signal.
+		whereConditions = append(whereConditions, `end_recovery is null`)
 	}
 	if clusterName != "" {
 		whereConditions = append(whereConditions, `cluster_name=?`)

@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+
+api="http://127.0.0.1:3000/api"
+
+# 01-failover/config.json injects "sleep 10" as a PreFailoverProcesses hook,
+# which runs synchronously after the recovery is registered (in_active_period=1,
+# end_recovery=NULL) and before it is resolved. This gives us a reliable window
+# to observe the recovery while it is still ongoing.
+
+baseline_id=$(curl -s "$api/audit-recovery/alias/ci" | jq -r 'if length > 0 then .[0].Id else 0 end')
+
+orchestrator-client -c recover -i 127.0.0.1:10111 -d 127.0.0.1:10113 > /tmp/audit-recovery-active-recover.log 2>&1 &
+recover_pid=$!
+
+seen_ongoing=false
+for i in $(seq 1 30) ; do
+  active_json=$(curl -s "$api/audit-recovery-active/alias/ci")
+  new_active_id=$(echo "$active_json" | jq -r --argjson baseline "$baseline_id" \
+    '[.[] | select(.Id > $baseline)] | if length > 0 then .[0].Id else 0 end')
+  if [ "$new_active_id" != "0" ] ; then
+    seen_ongoing=true
+    break
+  fi
+  sleep 0.3
+done
+
+wait "$recover_pid"
+
+all_json=$(curl -s "$api/audit-recovery/alias/ci")
+recovery_id=$(echo "$all_json" | jq -r '.[0].Id')
+is_successful=$(echo "$all_json" | jq -r '.[0].IsSuccessful')
+end_time=$(echo "$all_json" | jq -r '.[0].RecoveryEndTimestamp')
+
+active_json_after=$(curl -s "$api/audit-recovery-active/alias/ci")
+still_active=$(echo "$active_json_after" | jq --argjson id "$recovery_id" '[.[] | select(.Id == $id)] | length > 0')
+
+echo "recovery_seen_while_ongoing=$seen_ongoing"
+echo "recovery_is_successful=$is_successful"
+if [ -n "$end_time" ] && [ "$end_time" != "null" ] ; then
+  echo "recovery_end_time_present=true"
+else
+  echo "recovery_end_time_present=false"
+fi
+if [ "$still_active" == "false" ] ; then
+  echo "recovery_absent_after_completion=true"
+else
+  echo "recovery_absent_after_completion=false"
+fi

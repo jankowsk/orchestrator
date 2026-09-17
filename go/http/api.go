@@ -3482,9 +3482,29 @@ func (this *HttpAPI) AuditRecovery(params martini.Params, r render.Render, req *
 		}
 		unacknowledgedOnly := (req.URL.Query().Get("unacknowledged") == "true")
 
-		audits, err = logic.ReadRecentRecoveries(params["clusterName"], params["clusterAlias"], unacknowledgedOnly, page)
+		audits, err = logic.ReadRecentRecoveries(params["clusterName"], params["clusterAlias"], unacknowledgedOnly, false, page)
 	}
 
+	if err != nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: fmt.Sprintf("%+v", err)})
+		return
+	}
+
+	r.JSON(http.StatusOK, audits)
+}
+
+// AuditRecoveryActive provides list of ongoing topology-recovery entries.
+// The "ongoing" filter is applied in the SQL query (see ReadRecentRecoveries)
+// rather than after fetching, so unrelated completed recoveries are never
+// read from the DB or marshalled to JSON.
+func (this *HttpAPI) AuditRecoveryActive(params martini.Params, r render.Render, req *http.Request) {
+	page, derr := strconv.Atoi(params["page"])
+	if derr != nil || page < 0 {
+		page = 0
+	}
+	unacknowledgedOnly := (req.URL.Query().Get("unacknowledged") == "true")
+
+	audits, err := logic.ReadRecentRecoveries(params["clusterName"], params["clusterAlias"], unacknowledgedOnly, true, page)
 	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: fmt.Sprintf("%+v", err)})
 		return
@@ -3989,6 +4009,13 @@ func (this *HttpAPI) RegisterRequests(m *martini.ClassicMartini) {
 	this.registerAPIRequest(m, "audit-recovery/alias/:clusterAlias", this.AuditRecovery)
 	this.registerAPIRequest(m, "audit-recovery/alias/:clusterAlias/:page", this.AuditRecovery)
 	this.registerAPIRequest(m, "audit-recovery-steps/:uid", this.AuditRecoverySteps)
+
+	this.registerAPIRequest(m, "audit-recovery-active", this.AuditRecoveryActive)
+	this.registerAPIRequest(m, "audit-recovery-active/:page", this.AuditRecoveryActive)
+	this.registerAPIRequest(m, "audit-recovery-active/cluster/:clusterName", this.AuditRecoveryActive)
+	this.registerAPIRequest(m, "audit-recovery-active/cluster/:clusterName/:page", this.AuditRecoveryActive)
+	this.registerAPIRequest(m, "audit-recovery-active/alias/:clusterAlias", this.AuditRecoveryActive)
+	this.registerAPIRequest(m, "audit-recovery-active/alias/:clusterAlias/:page", this.AuditRecoveryActive)
 	this.registerAPIRequest(m, "active-cluster-recovery/:clusterName", this.ActiveClusterRecovery)
 	this.registerAPIRequest(m, "recently-active-cluster-recovery/:clusterName", this.RecentlyActiveClusterRecovery)
 	this.registerAPIRequest(m, "recently-active-instance-recovery/:host/:port", this.RecentlyActiveInstanceRecovery)
